@@ -39,6 +39,10 @@ if [[ ! -f "$STEP_DIR/config/ca.json" ]]; then
 
     docker run --rm -i \
         -v "$(pwd)/$STEP_DIR:/home/step" \
+        -e STEP_CA_NAME="$STEP_CA_NAME" \
+        -e STEP_CA_DNS="$STEP_CA_DNS" \
+        -e STEP_CA_ADDRESS="$STEP_CA_ADDRESS" \
+        -e STEP_CA_ADMIN_EMAIL="$STEP_CA_ADMIN_EMAIL" \
         "$IMAGE" \
         step ca init \
             --name "$STEP_CA_NAME" \
