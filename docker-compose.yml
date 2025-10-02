@@ -44,8 +44,6 @@ services:
     image: ghcr.io/ofkm/arcane:latest
     container_name: Arcane
     restart: unless-stopped
-    ports:
-      - "3000:3000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - arcane_data:/app/data
