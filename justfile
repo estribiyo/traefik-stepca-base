@@ -16,6 +16,13 @@ default:
 build:
     docker compose build
 
+clean-ca:
+   docker ps -a | grep traefik | awk '{print $1}' | xargs docker stop
+   docker ps -a | grep traefik | awk '{print $1}' | xargs docker rm
+   docker image list | grep traefik | awk '{print $3}' | xargs docker rmi 
+   if [ -f .env ]; then sed -i '/^STEP_EAB_KEYID=/d' .env; sed -i '/^STEP_EAB_HMAC=/d' .env; fi 
+   rm -rf step/* letsencrypt/*
+
 # Comprobar dependencias
 check-deps:
     #!/usr/bin/env bash
