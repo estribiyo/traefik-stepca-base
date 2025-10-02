@@ -1,0 +1,3 @@
+FROM traefik:latest
+COPY ./step/certs/root_ca.crt /usr/local/share/ca-certificates/root_ca.crt
+RUN update-ca-certificates

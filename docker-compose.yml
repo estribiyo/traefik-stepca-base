@@ -1,0 +1,109 @@
+services:
+  traefik:
+    build:
+      context: .
+      dockerfile: Dockerfile.traefik
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - --api.insecure=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:${TRAEFIK_WEB_PORT}
+      - --entrypoints.websecure.address=:${TRAEFIK_WEBSECURE_PORT}
+      - --certificatesresolvers.step.acme.tlschallenge=true
+      - --certificatesresolvers.step.acme.email=${STEP_CA_ADMIN_EMAIL}
+      - --certificatesresolvers.step.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.step.acme.caServer=https://step-ca:9000/acme/acme-provisioner/directory
+      - --certificatesresolvers.step.acme.eab.kid=${STEP_EAB_KEYID}
+      - --certificatesresolvers.step.acme.eab.hmacEncoded=${STEP_EAB_HMAC}
+    ports:
+      - "${TRAEFIK_WEB_PORT}:80"
+      - "${TRAEFIK_WEBSECURE_PORT}:443"
+      - "${TRAEFIK_API_PORT}:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
+    networks:
+      - shared_network
+    depends_on:
+      - step-ca
+
+  step-ca:
+    image: smallstep/step-ca:latest
+    container_name: step-ca
+    restart: unless-stopped
+    extra_hosts:
+      - "${STEP_CA_DNS}:127.0.0.1"
+    volumes:
+      - ./step:/home/step
+    networks:
+      - shared_network
+
+  arcane:
+    image: ghcr.io/ofkm/arcane:latest
+    container_name: Arcane
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - arcane_data:/app/data
+    environment:
+      - APP_ENV=production
+      - PUBLIC_SESSION_SECRET=KCUuZ67Xudfp/h1pBZZU/gutHfI3p0LPVzkCx677+wY=
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.arcane.rule=Host(`${ARCANE_DOMAIN}`)"
+      - "traefik.http.routers.arcane.entrypoints=websecure"
+      - "traefik.http.routers.arcane.tls.certresolver=step"
+      - "traefik.http.services.arcane.loadbalancer.server.port=3000"
+    networks:
+      - shared_network
+
+  postgresql:
+    image: postgres:16-alpine
+    container_name: PostgreSQL
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - shared_network
+
+  kanban:
+    image: baldissaramatheus/tasks.md
+    container_name: kanban
+    restart: unless-stopped
+    init: true
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TITLE: Tareas
+    volumes:
+      - tasks_data:/tasks
+      - tasks_config:/config
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.kanban.rule=Host(`${TASKS_DOMAIN}`)"
+      - "traefik.http.routers.kanban.entrypoints=websecure"
+      - "traefik.http.routers.kanban.tls.certresolver=step"
+      - "traefik.http.services.kanban.loadbalancer.server.port=8080"
+    networks:
+      - shared_network
+
+networks:
+  shared_network:
+    name: common_app_network
+    driver: bridge
+
+volumes:
+  db_data: {}
+  arcane_data: {}
+  tasks_data: {}
+  tasks_config: {}
